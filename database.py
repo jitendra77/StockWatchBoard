@@ -19,26 +19,34 @@ class DatabaseManager:
     def init_bigquery_client(self):
         """Initialize BigQuery client with authentication"""
         try:
-            # Try to get credentials from environment
+            # Method 1: Try file path
+            credentials_file = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+            if credentials_file and os.path.exists(credentials_file):
+                self.client = bigquery.Client.from_service_account_json(credentials_file)
+                self.project_id = self.client.project
+                st.success(f"Connected to BigQuery project: {self.project_id}")
+                return
+            
+            # Method 2: Try JSON string from environment
             credentials_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
             project_id = os.environ.get('GOOGLE_CLOUD_PROJECT_ID')
             
             if credentials_json and project_id:
-                # Parse JSON credentials
                 credentials_info = json.loads(credentials_json)
                 credentials = service_account.Credentials.from_service_account_info(credentials_info)
                 self.client = bigquery.Client(credentials=credentials, project=project_id)
                 self.project_id = project_id
-            else:
-                # Try default authentication
-                self.client = bigquery.Client()
-                self.project_id = self.client.project
-                
+                st.success(f"Connected to BigQuery project: {self.project_id}")
+                return
+            
+            # Method 3: Try default authentication
+            self.client = bigquery.Client()
+            self.project_id = self.client.project
             st.success(f"Connected to BigQuery project: {self.project_id}")
             
         except Exception as e:
             st.error(f"BigQuery authentication failed: {str(e)}")
-            st.info("Please provide your Google Cloud credentials as environment variables.")
+            st.info("Place your credentials.json file in the project directory and set GOOGLE_APPLICATION_CREDENTIALS=credentials.json")
             self.client = None
     
     def init_tables(self):
