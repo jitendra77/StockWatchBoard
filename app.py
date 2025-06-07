@@ -3,6 +3,8 @@ import pandas as pd
 import time
 from stock_fetcher import StockFetcher
 from database import DatabaseManager
+from news_fetcher import NewsFetcher
+from sentiment_analyzer import SentimentAnalyzer
 import numpy as np
 
 # Configure page
@@ -34,7 +36,7 @@ def get_change_color(change):
     """Get color based on change value"""
     return "green" if change >= 0 else "red"
 
-def display_stock_card(symbol, data):
+def display_stock_card(symbol, data, sentiment_data=None):
     """Display a stock card with formatting in a single compact row"""
     current_price = data['current_price']
     change = data['change']
@@ -42,8 +44,8 @@ def display_stock_card(symbol, data):
     
     color = get_change_color(change)
     
-    # Create compact single-row display
-    col1, col2, col3, col4 = st.columns([1.5, 1.5, 1.5, 1.5])
+    # Create compact single-row display with sentiment
+    col1, col2, col3, col4, col5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
     
     with col1:
         st.markdown(f"**{symbol}**")
@@ -56,6 +58,14 @@ def display_stock_card(symbol, data):
     
     with col4:
         st.markdown(f":{color}[{percent_change:+.2f}%]")
+    
+    with col5:
+        if sentiment_data:
+            sentiment_score = sentiment_data.get('avg_sentiment', 3.0)
+            sentiment_color = "green" if sentiment_score >= 3.5 else "red" if sentiment_score < 2.5 else "gray"
+            st.markdown(f":{sentiment_color}[{sentiment_score:.1f}★]")
+        else:
+            st.markdown("—")
 
 def main():
     st.title("📈 Stock Dashboard")
@@ -89,9 +99,11 @@ def main():
         st.warning("Please select at least one stock to monitor.")
         return
     
-    # Initialize stock fetcher and database
+    # Initialize components
     fetcher = StockFetcher()
     db = DatabaseManager()
+    news_fetcher = NewsFetcher()
+    sentiment_analyzer = SentimentAnalyzer()
     
     # Check if we need to fetch new data
     current_time = time.time()
