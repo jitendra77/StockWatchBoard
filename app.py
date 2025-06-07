@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import time
 from stock_fetcher import StockFetcher
+from database import DatabaseManager
 import numpy as np
 
 # Configure page
@@ -34,25 +35,27 @@ def get_change_color(change):
     return "green" if change >= 0 else "red"
 
 def display_stock_card(symbol, data):
-    """Display a stock card with formatting"""
+    """Display a stock card with formatting in a single compact row"""
     current_price = data['current_price']
     change = data['change']
     percent_change = data['percent_change']
     
     color = get_change_color(change)
     
-    # Create the stock card
-    with st.container():
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.markdown(f"**{symbol}**")
-            st.markdown(f"Price: {format_currency(current_price)}")
-        
-        with col2:
-            st.markdown(f":{color}[{format_change(change, percent_change)}]")
-        
-        st.divider()
+    # Create compact single-row display
+    col1, col2, col3, col4 = st.columns([1.5, 1.5, 1.5, 1.5])
+    
+    with col1:
+        st.markdown(f"**{symbol}**")
+    
+    with col2:
+        st.markdown(f"{format_currency(current_price)}")
+    
+    with col3:
+        st.markdown(f":{color}[{change:+.2f}]")
+    
+    with col4:
+        st.markdown(f":{color}[{percent_change:+.2f}%]")
 
 def main():
     st.title("📈 Stock Dashboard")
@@ -86,8 +89,9 @@ def main():
         st.warning("Please select at least one stock to monitor.")
         return
     
-    # Initialize stock fetcher
+    # Initialize stock fetcher and database
     fetcher = StockFetcher()
+    db = DatabaseManager()
     
     # Check if we need to fetch new data
     current_time = time.time()
@@ -103,6 +107,9 @@ def main():
                 stock_data = fetcher.fetch_stocks(selected_stocks)
                 st.session_state.stock_data = stock_data
                 st.session_state.last_update = current_time
+                
+                # Save stock data to database
+                db.save_stock_data(stock_data)
             except Exception as e:
                 st.error(f"Error fetching stock data: {str(e)}")
                 return
@@ -134,6 +141,19 @@ def main():
     with col1:
         st.subheader("📈 Stocks Up")
         if up_stocks:
+            # Add column headers
+            header_col1, header_col2, header_col3, header_col4 = st.columns([1.5, 1.5, 1.5, 1.5])
+            with header_col1:
+                st.markdown("**Symbol**")
+            with header_col2:
+                st.markdown("**Price**")
+            with header_col3:
+                st.markdown("**Change $**")
+            with header_col4:
+                st.markdown("**Change %**")
+            
+            st.markdown("---")
+            
             for symbol, data in sorted(up_stocks.items(), key=lambda x: x[1]['percent_change'], reverse=True):
                 display_stock_card(symbol, data)
         else:
@@ -142,6 +162,19 @@ def main():
     with col2:
         st.subheader("📉 Stocks Down")
         if down_stocks:
+            # Add column headers
+            header_col1, header_col2, header_col3, header_col4 = st.columns([1.5, 1.5, 1.5, 1.5])
+            with header_col1:
+                st.markdown("**Symbol**")
+            with header_col2:
+                st.markdown("**Price**")
+            with header_col3:
+                st.markdown("**Change $**")
+            with header_col4:
+                st.markdown("**Change %**")
+            
+            st.markdown("---")
+            
             for symbol, data in sorted(down_stocks.items(), key=lambda x: x[1]['percent_change']):
                 display_stock_card(symbol, data)
         else:

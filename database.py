@@ -33,9 +33,14 @@ class DatabaseManager:
                             volume BIGINT,
                             market_cap BIGINT,
                             company_name VARCHAR(255),
-                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            INDEX (symbol, timestamp)
+                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
+                    """)
+                    
+                    # Create indexes
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_stock_symbol_timestamp 
+                        ON stock_data (symbol, timestamp)
                     """)
                     
                     # News articles table
@@ -45,14 +50,19 @@ class DatabaseManager:
                             symbol VARCHAR(10) NOT NULL,
                             title TEXT NOT NULL,
                             content TEXT,
-                            url VARCHAR(500),
+                            url VARCHAR(500) UNIQUE,
                             source VARCHAR(100),
                             published_date TIMESTAMP,
                             sentiment_score DECIMAL(3,2),
                             sentiment_confidence DECIMAL(3,2),
-                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            INDEX (symbol, published_date)
+                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
+                    """)
+                    
+                    # Create indexes for news
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_news_symbol_date 
+                        ON news_articles (symbol, published_date)
                     """)
                     
                     # Stock sentiment summary table
@@ -67,7 +77,7 @@ class DatabaseManager:
                             neutral_articles INTEGER,
                             calculated_date DATE,
                             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            UNIQUE(symbol, calculated_date)
+                            CONSTRAINT unique_symbol_date UNIQUE(symbol, calculated_date)
                         )
                     """)
                     
