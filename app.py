@@ -82,6 +82,10 @@ def main():
     if st.sidebar.button("🔄 Refresh Now"):
         st.session_state.stock_data = None
     
+    # News analysis toggle
+    enable_news = st.sidebar.checkbox("Enable News Sentiment Analysis", value=True)
+    st.sidebar.caption("Note: News analysis limited to first 3 stocks to prevent delays")
+    
     # Stock selection
     default_stocks = [
         'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
@@ -122,6 +126,37 @@ def main():
                 
                 # Save stock data to database
                 db.save_stock_data(stock_data)
+                
+                # Fetch and analyze news for selected stocks (if enabled)
+                if enable_news and len(selected_stocks) <= 3:
+                    for symbol in selected_stocks[:3]:
+                        try:
+                            # Fetch news articles
+                            articles = news_fetcher.fetch_all_news(symbol, 2)
+                            
+                            # Analyze sentiment for each article
+                            for article in articles:
+                                sentiment_result = sentiment_analyzer.analyze_text_sentiment(
+                                    f"{article['title']} {article['content']}"
+                                )
+                                
+                                # Save to database
+                                db.save_news_article(
+                                    symbol=symbol,
+                                    title=article['title'],
+                                    content=article['content'],
+                                    url=article['url'],
+                                    source=article['source'],
+                                    published_date=article['published_date'],
+                                    sentiment_score=sentiment_result['rating'],
+                                    sentiment_confidence=sentiment_result['confidence']
+                                )
+                            
+                            # Update sentiment summary
+                            db.update_sentiment_summary(symbol)
+                            
+                        except Exception as e:
+                            st.warning(f"News analysis error for {symbol}: {str(e)}")
             except Exception as e:
                 st.error(f"Error fetching stock data: {str(e)}")
                 return
@@ -136,6 +171,11 @@ def main():
     if st.session_state.last_update:
         update_time = time.strftime("%H:%M:%S", time.localtime(st.session_state.last_update))
         st.caption(f"Last updated: {update_time}")
+    
+    # Get sentiment data for all stocks
+    sentiment_data = {}
+    for symbol in stock_data.keys():
+        sentiment_data[symbol] = db.get_sentiment_summary(symbol)
     
     # Separate stocks into up and down
     up_stocks = {}
@@ -154,7 +194,7 @@ def main():
         st.subheader("📈 Stocks Up")
         if up_stocks:
             # Add column headers
-            header_col1, header_col2, header_col3, header_col4 = st.columns([1.5, 1.5, 1.5, 1.5])
+            header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
             with header_col1:
                 st.markdown("**Symbol**")
             with header_col2:
@@ -163,11 +203,13 @@ def main():
                 st.markdown("**Change $**")
             with header_col4:
                 st.markdown("**Change %**")
+            with header_col5:
+                st.markdown("**Sentiment**")
             
             st.markdown("---")
             
             for symbol, data in sorted(up_stocks.items(), key=lambda x: x[1]['percent_change'], reverse=True):
-                display_stock_card(symbol, data)
+                display_stock_card(symbol, data, sentiment_data.get(symbol))
         else:
             st.info("No stocks are up at the moment.")
     
@@ -175,7 +217,7 @@ def main():
         st.subheader("📉 Stocks Down")
         if down_stocks:
             # Add column headers
-            header_col1, header_col2, header_col3, header_col4 = st.columns([1.5, 1.5, 1.5, 1.5])
+            header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
             with header_col1:
                 st.markdown("**Symbol**")
             with header_col2:
@@ -184,11 +226,13 @@ def main():
                 st.markdown("**Change $**")
             with header_col4:
                 st.markdown("**Change %**")
+            with header_col5:
+                st.markdown("**Sentiment**")
             
             st.markdown("---")
             
             for symbol, data in sorted(down_stocks.items(), key=lambda x: x[1]['percent_change']):
-                display_stock_card(symbol, data)
+                display_stock_card(symbol, data, sentiment_data.get(symbol))
         else:
             st.info("No stocks are down at the moment.")
     
