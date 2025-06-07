@@ -45,7 +45,7 @@ def display_stock_card(symbol, data, sentiment_data=None):
     color = get_change_color(change)
     
     # Create compact single-row display with sentiment
-    col1, col2, col3, col4, col5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 0.8])
     
     with col1:
         st.markdown(f"**{symbol}**")
@@ -69,7 +69,7 @@ def display_stock_card(symbol, data, sentiment_data=None):
 
 def main():
     st.title("📈 Stock Dashboard")
-    st.markdown("Real-time stock price monitoring with up/down segregation")
+    st.markdown("Real-time monitoring with sentiment analysis")
     
     # Sidebar controls
     st.sidebar.header("Settings")
@@ -96,7 +96,7 @@ def main():
     selected_stocks = st.sidebar.multiselect(
         "Select Stocks to Monitor",
         options=default_stocks,
-        default=default_stocks[:10]
+        default=default_stocks[:6]
     )
     
     if not selected_stocks:
@@ -194,7 +194,7 @@ def main():
         st.subheader("📈 Stocks Up")
         if up_stocks:
             # Add column headers
-            header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
+            header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([1, 1, 1, 1, 0.8])
             with header_col1:
                 st.markdown("**Symbol**")
             with header_col2:
@@ -217,7 +217,7 @@ def main():
         st.subheader("📉 Stocks Down")
         if down_stocks:
             # Add column headers
-            header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([1.2, 1.2, 1.2, 1.2, 1.2])
+            header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([1, 1, 1, 1, 0.8])
             with header_col1:
                 st.markdown("**Symbol**")
             with header_col2:
@@ -236,23 +236,22 @@ def main():
         else:
             st.info("No stocks are down at the moment.")
     
-    # Summary statistics
-    st.subheader("📊 Summary")
-    
+    # Compact summary statistics
     total_stocks = len(stock_data)
     up_count = len(up_stocks)
     down_count = len(down_stocks)
     
+    st.markdown("---")
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("Total Stocks", total_stocks)
+        st.metric("Total", total_stocks)
     
     with col2:
-        st.metric("Stocks Up", up_count, delta=None)
+        st.metric("Up", up_count)
     
     with col3:
-        st.metric("Stocks Down", down_count, delta=None)
+        st.metric("Down", down_count)
     
     # Auto-refresh mechanism
     if auto_refresh:
