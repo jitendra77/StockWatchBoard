@@ -90,13 +90,16 @@ def main():
     default_stocks = [
         'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
         'META', 'NVDA', 'NFLX', 'AMD', 'INTC',
-        'CRM', 'UBER', 'SPOT', 'TWTR', 'SNAP'
+        'CRM', 'UBER', 'SPOT', 'JPM', 'V',
+        'JNJ', 'WMT', 'PG', 'HD', 'BAC',
+        'DIS', 'ADBE', 'PYPL', 'CMCSA', 'PFE',
+        'VZ', 'T', 'KO', 'PEP', 'XOM'
     ]
     
     selected_stocks = st.sidebar.multiselect(
         "Select Stocks to Monitor",
         options=default_stocks,
-        default=default_stocks[:6]
+        default=default_stocks[:8]
     )
     
     if not selected_stocks:
