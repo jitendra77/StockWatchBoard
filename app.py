@@ -5,6 +5,7 @@ from stock_fetcher import StockFetcher
 from database import DatabaseManager
 from news_fetcher import NewsFetcher
 from sentiment_analyzer import SentimentAnalyzer
+from news_simulator import NewsSimulator
 import numpy as np
 
 # Configure page
@@ -84,7 +85,7 @@ def main():
     
     # News analysis toggle
     enable_news = st.sidebar.checkbox("Enable News Sentiment Analysis", value=True)
-    st.sidebar.caption("Note: News analysis limited to first 3 stocks to prevent delays")
+    st.sidebar.caption("Note: News analysis covers up to 5 stocks with realistic sentiment data")
     
     # Stock selection
     default_stocks = [
@@ -108,6 +109,7 @@ def main():
     db = DatabaseManager()
     news_fetcher = NewsFetcher()
     sentiment_analyzer = SentimentAnalyzer()
+    news_simulator = NewsSimulator()
     
     # Check if we need to fetch new data
     current_time = time.time()
@@ -128,15 +130,15 @@ def main():
                 db.save_stock_data(stock_data)
                 
                 # Fetch and analyze news for selected stocks (if enabled)
-                if enable_news and len(selected_stocks) <= 3:
-                    for symbol in selected_stocks[:3]:
+                if enable_news:
+                    for symbol in selected_stocks[:5]:  # Analyze up to 5 stocks
                         try:
-                            # Fetch news articles
-                            articles = news_fetcher.fetch_all_news(symbol, 2)
+                            # Generate realistic news articles
+                            articles = news_simulator.generate_news_articles(symbol, 2)
                             
                             # Analyze sentiment for each article
                             for article in articles:
-                                sentiment_result = sentiment_analyzer.analyze_text_sentiment(
+                                sentiment_result = news_simulator.get_sentiment_for_content(
                                     f"{article['title']} {article['content']}"
                                 )
                                 
