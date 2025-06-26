@@ -6,6 +6,7 @@ from database import DatabaseManager
 from news_fetcher import NewsFetcher
 from sentiment_analyzer import SentimentAnalyzer
 from news_simulator import NewsSimulator
+from options_analyzer import OptionsAnalyzer
 import numpy as np
 
 # Configure page
@@ -83,9 +84,12 @@ def main():
     if st.sidebar.button("🔄 Refresh Now"):
         st.session_state.stock_data = None
     
-    # News analysis toggle
+    # Feature toggles
     enable_news = st.sidebar.checkbox("Enable News Sentiment Analysis", value=True)
     st.sidebar.caption("Note: News analysis covers up to 5 stocks with realistic sentiment data")
+    
+    enable_options = st.sidebar.checkbox("Enable CSP Options Analysis", value=False)
+    st.sidebar.caption("Note: Cash Secured Put options with delta 0.17-0.23, expiring within 7 days")
     
     # Stock selection
     default_stocks = [
@@ -110,6 +114,7 @@ def main():
     news_fetcher = NewsFetcher()
     sentiment_analyzer = SentimentAnalyzer()
     news_simulator = NewsSimulator()
+    options_analyzer = OptionsAnalyzer()
     
     # Check if we need to fetch new data
     current_time = time.time()
@@ -254,6 +259,15 @@ def main():
     
     with col3:
         st.metric("Down", down_count)
+    
+    # Options Analysis Section
+    if enable_options:
+        st.markdown("---")
+        st.markdown("## 📊 Cash Secured Put (CSP) Analysis")
+        
+        # Analyze options for selected stocks
+        options_df = options_analyzer.get_top_csp_opportunities(selected_stocks, limit=15)
+        options_analyzer.display_csp_summary(options_df)
     
     # Auto-refresh mechanism
     if auto_refresh:
