@@ -69,6 +69,17 @@ The application follows a modular architecture with separate components for diff
   - Collateral requirements
   - Risk metrics and breakeven analysis
 
+### 7. Portfolio Optimization (portfolio_optimizer.py)
+- **Technology**: Advanced allocation algorithms with constraint optimization
+- **Purpose**: Optimizes $100k capital allocation across AMZN, AAPL, GOOGL with same expiry
+- **Features**:
+  - Common expiry date identification across all three stocks
+  - Allocation constraint enforcement (15-60% per stock)
+  - Premium percentage maximization algorithms
+  - Capital efficiency calculations
+  - Multiple allocation scenario testing
+  - Detailed reporting and CSV export functionality
+
 ## Data Flow
 
 1. **Stock Data Collection**: StockFetcher retrieves data from Yahoo Finance API
@@ -124,6 +135,11 @@ The application follows a modular architecture with separate components for diff
 - Created detailed options analysis table with risk metrics
 - Enhanced BigQuery authentication to handle file-based credentials
 - Improved error handling for JSON credential truncation issues
+- **Added Portfolio Optimization Engine**: Optimizes $100k allocation across AMZN, AAPL, GOOGL
+- **Implemented allocation constraints**: 15-60% per stock with 5% increment testing
+- **Added common expiry date filtering**: Ensures all three stocks have options on same date
+- **Created comprehensive optimization metrics**: Premium percentage, capital efficiency, annualized returns
+- **Built detailed reporting system**: CSV export and allocation breakdown tables
 
 ## User Preferences
 

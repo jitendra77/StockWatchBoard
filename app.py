@@ -7,6 +7,7 @@ from news_fetcher import NewsFetcher
 from sentiment_analyzer import SentimentAnalyzer
 from news_simulator import NewsSimulator
 from options_analyzer import OptionsAnalyzer
+from portfolio_optimizer import PortfolioOptimizer
 import numpy as np
 
 # Configure page
@@ -91,6 +92,9 @@ def main():
     enable_options = st.sidebar.checkbox("Enable CSP Options Analysis", value=False)
     st.sidebar.caption("Note: Cash Secured Put options with delta 0.17-0.23, expiring within 7 days")
     
+    enable_portfolio_optimization = st.sidebar.checkbox("Enable Portfolio Optimization", value=False)
+    st.sidebar.caption("Note: Optimize $100k allocation across AMZN, AAPL, GOOGL with same expiry")
+    
     # Stock selection
     default_stocks = [
         'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
@@ -115,6 +119,7 @@ def main():
     sentiment_analyzer = SentimentAnalyzer()
     news_simulator = NewsSimulator()
     options_analyzer = OptionsAnalyzer()
+    portfolio_optimizer = PortfolioOptimizer()
     
     # Check if we need to fetch new data
     current_time = time.time()
@@ -268,6 +273,26 @@ def main():
         # Analyze options for selected stocks
         options_df = options_analyzer.get_top_csp_opportunities(selected_stocks, limit=15)
         options_analyzer.display_csp_summary(options_df)
+    
+    # Portfolio Optimization Section
+    if enable_portfolio_optimization:
+        st.markdown("---")
+        st.markdown("## 🎯 Portfolio Optimization")
+        
+        # Define target symbols for optimization
+        target_symbols = ['AMZN', 'AAPL', 'GOOGL']
+        
+        # Check if target symbols are available
+        missing_symbols = [sym for sym in target_symbols if sym not in selected_stocks]
+        if missing_symbols:
+            st.warning(f"Adding required symbols for optimization: {', '.join(missing_symbols)}")
+            # Add missing symbols temporarily for optimization
+            optimization_symbols = target_symbols
+        else:
+            optimization_symbols = target_symbols
+        
+        # Run portfolio optimization
+        portfolio_optimizer.display_portfolio_optimization(optimization_symbols)
     
     # Auto-refresh mechanism
     if auto_refresh:
