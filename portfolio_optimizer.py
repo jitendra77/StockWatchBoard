@@ -59,7 +59,7 @@ class PortfolioOptimizer:
     
     def optimize_allocation_for_expiry(self, symbols: List[str], expiry_date: str, 
                                      options_data: Dict[str, Dict[str, List[Dict]]]) -> Dict[str, Any]:
-        """Optimize allocation for a specific expiry date"""
+        """Optimize allocation for a specific expiry date with maximum capital utilization"""
         
         # Get options for this expiry date for all symbols
         expiry_options = {}
@@ -70,35 +70,32 @@ class PortfolioOptimizer:
                 return None  # Cannot optimize if any symbol missing options
         
         best_allocation = None
-        best_total_premium_pct = 0
+        best_score = 0  # Combined score: premium percentage + capital utilization
         
-        # Generate allocation percentages that sum to 1 and respect constraints
-        allocation_steps = 0.05  # 5% increments
-        allocations = np.arange(self.min_allocation_per_stock, 
-                               self.max_allocation_per_stock + allocation_steps, 
-                               allocation_steps)
+        # Get top options for each symbol
+        symbol_best_options = {}
+        for symbol in symbols:
+            sorted_options = sorted(expiry_options[symbol], 
+                                  key=lambda x: x['premium_percentage'], 
+                                  reverse=True)
+            symbol_best_options[symbol] = sorted_options[:5]  # Top 5 options per symbol
         
-        # Generate all valid allocation combinations
-        for alloc_combo in product(allocations, repeat=len(symbols)):
-            if abs(sum(alloc_combo) - 1.0) < 0.01:  # Sum should be 1 (within rounding tolerance)
-                # Test all combinations of best options for each symbol
-                symbol_best_options = {}
-                for i, symbol in enumerate(symbols):
-                    # Sort options by premium percentage for this symbol
-                    sorted_options = sorted(expiry_options[symbol], 
-                                          key=lambda x: x['premium_percentage'], 
-                                          reverse=True)
-                    symbol_best_options[symbol] = sorted_options[:3]  # Top 3 options
+        # Test combinations of options
+        option_combinations = product(*[symbol_best_options[symbol] for symbol in symbols])
+        
+        for option_combo in option_combinations:
+            # Use iterative allocation to maximize capital utilization
+            allocation_result = self._maximize_capital_utilization(symbols, option_combo)
+            
+            if allocation_result:
+                # Calculate combined score: 70% premium percentage + 30% capital efficiency
+                premium_score = allocation_result['total_premium_percentage']
+                capital_score = allocation_result['capital_efficiency']
+                combined_score = (premium_score * 0.7) + (capital_score * 0.3)
                 
-                # Test combinations of top options
-                option_combinations = product(*[symbol_best_options[symbol] for symbol in symbols])
-                
-                for option_combo in option_combinations:
-                    allocation_result = self._test_allocation(symbols, alloc_combo, option_combo)
-                    
-                    if allocation_result and allocation_result['total_premium_percentage'] > best_total_premium_pct:
-                        best_total_premium_pct = allocation_result['total_premium_percentage']
-                        best_allocation = allocation_result
+                if combined_score > best_score:
+                    best_score = combined_score
+                    best_allocation = allocation_result
         
         if best_allocation:
             best_allocation['expiry_date'] = expiry_date
@@ -143,6 +140,113 @@ class PortfolioOptimizer:
             total_premium += premium
         
         # Calculate overall metrics
+        total_premium_percentage = (total_premium / total_allocated_capital) * 100 if total_allocated_capital > 0 else 0
+        unused_capital = self.total_capital - total_allocated_capital
+        
+        return {
+            'allocations': allocations,
+            'total_allocated_capital': total_allocated_capital,
+            'total_premium': total_premium,
+            'total_premium_percentage': total_premium_percentage,
+            'unused_capital': unused_capital,
+            'capital_efficiency': (total_allocated_capital / self.total_capital) * 100
+        }
+    
+    def _maximize_capital_utilization(self, symbols: List[str], option_combo: Tuple[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Maximize capital utilization using iterative allocation"""
+        
+        # Start with minimum allocation for each stock
+        min_capital_per_stock = self.total_capital * self.min_allocation_per_stock
+        allocations = []
+        remaining_capital = self.total_capital
+        
+        # First pass: ensure minimum allocation for each stock
+        for i, symbol in enumerate(symbols):
+            option = option_combo[i]
+            collateral_per_contract = option['strike'] * 100
+            
+            # Calculate minimum contracts needed
+            min_contracts = max(1, int(min_capital_per_stock / collateral_per_contract))
+            min_allocation = min_contracts * collateral_per_contract
+            
+            if min_allocation > remaining_capital:
+                return None  # Cannot satisfy minimum requirements
+            
+            contracts, actual_allocation, premium = self.calculate_contracts_and_allocation(
+                option, min_allocation
+            )
+            
+            if contracts == 0:
+                return None
+            
+            allocations.append({
+                'symbol': symbol,
+                'option': option,
+                'allocated_capital': min_allocation,
+                'actual_allocation': actual_allocation,
+                'contracts': contracts,
+                'premium': premium,
+                'premium_percentage': option['premium_percentage'],
+                'strike': option['strike'],
+                'delta': option['delta'],
+                'days_to_exp': option['days_to_exp'],
+                'breakeven': option['breakeven']
+            })
+            
+            remaining_capital -= actual_allocation
+        
+        # Second pass: distribute remaining capital to maximize premium
+        # Continue until unused capital cannot buy another contract for ANY stock
+        while True:
+            best_addition = None
+            best_premium_gain = 0
+            best_idx = -1
+            
+            # Find the best stock to add another contract
+            for i, alloc in enumerate(allocations):
+                option = alloc['option']
+                collateral_per_contract = option['strike'] * 100
+                
+                # Check if we can add another contract
+                if (collateral_per_contract <= remaining_capital and 
+                    alloc['actual_allocation'] + collateral_per_contract <= self.total_capital * self.max_allocation_per_stock):
+                    
+                    # Calculate premium gain per dollar
+                    premium_gain = option['premium'] * 100
+                    premium_gain_ratio = premium_gain / collateral_per_contract
+                    
+                    if premium_gain_ratio > best_premium_gain:
+                        best_premium_gain = premium_gain_ratio
+                        best_addition = collateral_per_contract
+                        best_idx = i
+            
+            # Add the best contract if found
+            if best_idx >= 0 and best_addition:
+                allocations[best_idx]['contracts'] += 1
+                allocations[best_idx]['actual_allocation'] += best_addition
+                allocations[best_idx]['premium'] += allocations[best_idx]['option']['premium'] * 100
+                remaining_capital -= best_addition
+            else:
+                break  # No more beneficial additions possible
+        
+        # Verify that unused capital cannot buy any contract
+        min_contract_cost = min(alloc['option']['strike'] * 100 for alloc in allocations)
+        if remaining_capital >= min_contract_cost:
+            # This shouldn't happen with proper optimization, but let's handle it
+            # Try one more round of allocation to any stock that can accept it
+            for alloc in allocations:
+                collateral_per_contract = alloc['option']['strike'] * 100
+                if (collateral_per_contract <= remaining_capital and 
+                    alloc['actual_allocation'] + collateral_per_contract <= self.total_capital * self.max_allocation_per_stock):
+                    alloc['contracts'] += 1
+                    alloc['actual_allocation'] += collateral_per_contract
+                    alloc['premium'] += alloc['option']['premium'] * 100
+                    remaining_capital -= collateral_per_contract
+                    break
+        
+        # Calculate final metrics
+        total_allocated_capital = sum(alloc['actual_allocation'] for alloc in allocations)
+        total_premium = sum(alloc['premium'] for alloc in allocations)
         total_premium_percentage = (total_premium / total_allocated_capital) * 100 if total_allocated_capital > 0 else 0
         unused_capital = self.total_capital - total_allocated_capital
         
@@ -210,11 +314,15 @@ class PortfolioOptimizer:
             st.metric("Total Premium", f"${best_portfolio['total_premium']:,.0f}")
         
         with col3:
-            st.metric("Capital Efficiency", f"{best_portfolio['capital_efficiency']:.1f}%")
+            st.metric("Capital Used", f"${best_portfolio['total_allocated_capital']:,.0f}")
         
         with col4:
-            annualized = (best_portfolio['total_premium_percentage'] * 365) / best_portfolio['days_to_expiry']
-            st.metric("Annualized Return", f"{annualized:.1f}%")
+            unused_capital = best_portfolio['unused_capital']
+            min_contract_cost = min(alloc['option']['strike'] * 100 for alloc in best_portfolio['allocations'])
+            if unused_capital < min_contract_cost:
+                st.metric("Capital Status", "✓ Fully Utilized", delta=f"${unused_capital:,.0f} unused")
+            else:
+                st.metric("Capital Status", "⚠ Can Add More", delta=f"${unused_capital:,.0f} unused")
         
         # Display top portfolio options
         st.markdown("### 🎯 Top Portfolio Allocations")
@@ -244,7 +352,12 @@ class PortfolioOptimizer:
                 with col1:
                     st.metric("Total Capital Used", f"${portfolio['total_allocated_capital']:,.0f}")
                 with col2:
-                    st.metric("Unused Capital", f"${portfolio['unused_capital']:,.0f}")
+                    unused_capital = portfolio['unused_capital']
+                    min_contract_cost = min(alloc['option']['strike'] * 100 for alloc in portfolio['allocations'])
+                    if unused_capital < min_contract_cost:
+                        st.metric("Unused Capital", f"${unused_capital:,.0f}", delta="✓ Cannot buy more contracts")
+                    else:
+                        st.metric("Unused Capital", f"${unused_capital:,.0f}", delta="⚠ Can buy more contracts")
                 with col3:
                     annualized_return = (portfolio['total_premium_percentage'] * 365) / portfolio['days_to_expiry']
                     st.metric("Annualized Return", f"{annualized_return:.1f}%")
