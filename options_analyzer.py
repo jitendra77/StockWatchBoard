@@ -55,9 +55,9 @@ class OptionsAnalyzer:
             if not expiration_dates:
                 return None
             
-            # Filter for next week (within 7 days)
+            # Filter for next week (within 10 days)
             today = datetime.now().date()
-            next_week = today + timedelta(days=7)
+            next_week = today + timedelta(days=10)
             
             valid_expirations = []
             for exp_str in expiration_dates:
@@ -217,7 +217,7 @@ class OptionsAnalyzer:
             return
         
         st.subheader("🎯 Cash Secured Put Opportunities")
-        st.caption("Put options with delta between 0.17-0.23 expiring within 7 days")
+        st.caption("Put options with delta between 0.17-0.23 expiring within 10 days")
         
         # Display summary metrics
         col1, col2, col3, col4 = st.columns(4)
