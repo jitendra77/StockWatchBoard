@@ -8,7 +8,7 @@ class StockFetcher:
     """Class to handle stock data fetching and processing"""
     
     def __init__(self):
-        self.cache_duration = 30  # Cache duration in seconds
+        self.cache_duration = 300  # Cache duration in seconds
     
     def fetch_stock_info(self, symbol: str) -> Dict[str, Any]:
         """

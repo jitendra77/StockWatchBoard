@@ -78,7 +78,7 @@ def main():
     st.sidebar.header("Settings")
     
     # Auto-refresh toggle
-    auto_refresh = st.sidebar.checkbox("Auto Refresh (30s)", value=st.session_state.auto_refresh)
+    auto_refresh = st.sidebar.checkbox("Auto Refresh (300s)", value=st.session_state.auto_refresh)
     st.session_state.auto_refresh = auto_refresh
     
     # Manual refresh button
@@ -126,7 +126,7 @@ def main():
     should_fetch = (
         st.session_state.stock_data is None or
         st.session_state.last_update is None or
-        (current_time - st.session_state.last_update) > 30
+        (current_time - st.session_state.last_update) > 300
     )
     
     if should_fetch:
