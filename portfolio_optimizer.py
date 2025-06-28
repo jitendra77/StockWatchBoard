@@ -20,16 +20,30 @@ class PortfolioOptimizer:
         all_options = {}
         
         for symbol in symbols:
-            options = self.options_analyzer.analyze_csp_options(symbol)
-            if options:
-                all_options[symbol] = {}
-                for option in options:
-                    expiry = option['expiration']
-                    if expiry not in all_options[symbol]:
-                        all_options[symbol][expiry] = []
-                    all_options[symbol][expiry].append(option)
+            try:
+                options = self.options_analyzer.analyze_csp_options(symbol)
+                if options:
+                    all_options[symbol] = {}
+                    for option in options:
+                        expiry = option['expiration']
+                        if expiry not in all_options[symbol]:
+                            all_options[symbol][expiry] = []
+                        all_options[symbol][expiry].append(option)
+                    print(f"✓ Found {len(options)} CSP options for {symbol}")
+                else:
+                    print(f"⚠ No qualifying CSP options found for {symbol}")
+            except Exception as e:
+                print(f"✗ Error fetching options for {symbol}: {e}")
         
-        return all_options
+        # Filter out symbols with no qualifying options
+        qualifying_symbols = {k: v for k, v in all_options.items() if v}
+        
+        if len(qualifying_symbols) < len(symbols):
+            excluded = [s for s in symbols if s not in qualifying_symbols]
+            print(f"📋 Excluding {excluded} - no options meeting delta criteria")
+            print(f"📈 Optimizing with qualifying symbols: {list(qualifying_symbols.keys())}")
+        
+        return qualifying_symbols
     
     def find_common_expiry_dates(self, options_data: Dict[str, Dict[str, List[Dict]]]) -> List[str]:
         """Find expiry dates that are common across all symbols"""
@@ -229,20 +243,33 @@ class PortfolioOptimizer:
             else:
                 break  # No more beneficial additions possible
         
-        # Verify that unused capital cannot buy any contract
-        min_contract_cost = min(alloc['option']['strike'] * 100 for alloc in allocations)
-        if remaining_capital >= min_contract_cost:
-            # This shouldn't happen with proper optimization, but let's handle it
-            # Try one more round of allocation to any stock that can accept it
-            for alloc in allocations:
+        # Continue adding contracts until unused capital cannot buy any more
+        while True:
+            added_contract = False
+            
+            # Sort allocations by premium percentage (best opportunities first)
+            sorted_allocations = sorted(enumerate(allocations), 
+                                      key=lambda x: x[1]['option']['premium_percentage'], 
+                                      reverse=True)
+            
+            for i, alloc in sorted_allocations:
                 collateral_per_contract = alloc['option']['strike'] * 100
+                max_allocation_for_stock = self.total_capital * self.max_allocation_per_stock
+                
+                # Check if we can add another contract to this stock
                 if (collateral_per_contract <= remaining_capital and 
-                    alloc['actual_allocation'] + collateral_per_contract <= self.total_capital * self.max_allocation_per_stock):
-                    alloc['contracts'] += 1
-                    alloc['actual_allocation'] += collateral_per_contract
-                    alloc['premium'] += alloc['option']['premium'] * 100
+                    alloc['actual_allocation'] + collateral_per_contract <= max_allocation_for_stock):
+                    
+                    allocations[i]['contracts'] += 1
+                    allocations[i]['actual_allocation'] += collateral_per_contract
+                    allocations[i]['premium'] += alloc['option']['premium'] * 100
                     remaining_capital -= collateral_per_contract
+                    added_contract = True
                     break
+            
+            # If no contracts could be added, we're done
+            if not added_contract:
+                break
         
         # Calculate final metrics
         total_allocated_capital = sum(alloc['actual_allocation'] for alloc in allocations)
@@ -260,29 +287,64 @@ class PortfolioOptimizer:
         }
     
     def optimize_portfolio(self, symbols: List[str]) -> List[Dict[str, Any]]:
-        """Optimize portfolio across all common expiry dates"""
+        """Optimize portfolio across all common expiry dates with fallback for non-qualifying symbols"""
         
-        # Get all options data
+        # Get options data for all symbols (automatically filters non-qualifying ones)
         with st.spinner("Analyzing options for portfolio optimization..."):
             options_data = self.get_common_expiry_options(symbols)
         
         if not options_data:
+            print("❌ No symbols have qualifying options meeting delta criteria")
             return []
+        
+        # Use only qualifying symbols for optimization
+        qualifying_symbols = list(options_data.keys())
+        
+        if len(qualifying_symbols) < 2:
+            print(f"⚠ Only {len(qualifying_symbols)} qualifying symbol(s). Need at least 2 for diversification.")
+            return []
+        
+        # Adjust allocation constraints based on number of qualifying symbols
+        original_min = self.min_allocation_per_stock
+        original_max = self.max_allocation_per_stock
+        
+        # Redistribute allocation ranges for fewer symbols
+        if len(qualifying_symbols) == 2:
+            self.min_allocation_per_stock = 0.3  # 30% minimum
+            self.max_allocation_per_stock = 0.7  # 70% maximum
+            print("📊 Adjusting allocation for 2 qualifying symbols: 30-70% each")
+        elif len(qualifying_symbols) == 3:
+            self.min_allocation_per_stock = 0.2  # 20% minimum  
+            self.max_allocation_per_stock = 0.6  # 60% maximum
+            print("📊 Adjusting allocation for 3 qualifying symbols: 20-60% each")
+        elif len(qualifying_symbols) == 4:
+            # Keep original constraints
+            print("📊 Using standard allocation for 4 qualifying symbols: 15-60% each")
         
         # Find common expiry dates
         common_expiries = self.find_common_expiry_dates(options_data)
         
         if not common_expiries:
+            print("No common expiry dates found across qualifying symbols")
+            # Restore original constraints
+            self.min_allocation_per_stock = original_min
+            self.max_allocation_per_stock = original_max
             return []
+        
+        print(f"Found {len(common_expiries)} common expiry dates: {common_expiries}")
         
         # Optimize for each common expiry date
         optimized_portfolios = []
         
         for expiry in common_expiries:
             with st.spinner(f"Optimizing allocation for {expiry}..."):
-                result = self.optimize_allocation_for_expiry(symbols, expiry, options_data)
+                result = self.optimize_allocation_for_expiry(qualifying_symbols, expiry, options_data)
                 if result:
                     optimized_portfolios.append(result)
+        
+        # Restore original constraints
+        self.min_allocation_per_stock = original_min
+        self.max_allocation_per_stock = original_max
         
         # Sort by total premium percentage
         optimized_portfolios.sort(key=lambda x: x['total_premium_percentage'], reverse=True)
@@ -299,7 +361,11 @@ class PortfolioOptimizer:
         portfolios = self.optimize_portfolio(symbols)
         
         if not portfolios:
-            st.warning("No common expiry dates found for all selected stocks with suitable CSP options")
+            st.error("❌ No optimization possible")
+            st.info("💡 Possible reasons:")
+            st.info("• No symbols have options meeting delta criteria (0.17-0.23)")
+            st.info("• No common expiry dates across qualifying symbols")
+            st.info("• Insufficient qualifying symbols for diversification (need ≥2)")
             return
         
         # Display summary metrics for best portfolio

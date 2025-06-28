@@ -98,7 +98,7 @@ def main():
     # Stock selection
     default_stocks = [
         'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'NVDA',
-         'ORCL', 'INTC', 'CRM', 'AVGO', 'HOOD'
+         'ORCL', 'HOOD','INTC', 'CRM', 'AVGO'
     ]
     
     selected_stocks = st.sidebar.multiselect(
@@ -279,7 +279,7 @@ def main():
         st.markdown("## 🎯 Portfolio Optimization")
         
         # Define target symbols for optimization
-        target_symbols = ['AMZN', 'AAPL', 'GOOGL']
+        target_symbols = ['AMZN', 'AAPL', 'GOOGL', 'HOOD']
         
         # Check if target symbols are available
         missing_symbols = [sym for sym in target_symbols if sym not in selected_stocks]
