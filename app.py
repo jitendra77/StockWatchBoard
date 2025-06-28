@@ -90,7 +90,7 @@ def main():
     st.sidebar.caption("Note: News analysis covers up to 5 stocks with realistic sentiment data")
     
     enable_options = st.sidebar.checkbox("Enable CSP Options Analysis", value=False)
-    st.sidebar.caption("Note: Cash Secured Put options with delta 0.17-0.23, expiring within 7 days")
+    st.sidebar.caption("Note: Cash Secured Put options with delta 0.15-0.25, expiring within 10 days")
     
     enable_portfolio_optimization = st.sidebar.checkbox("Enable Portfolio Optimization", value=False)
     st.sidebar.caption("Note: Optimize $100k allocation across AMZN, AAPL, GOOGL with same expiry")

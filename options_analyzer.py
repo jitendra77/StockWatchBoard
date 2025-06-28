@@ -127,9 +127,9 @@ class OptionsAnalyzer:
                         option_type='put'
                     )
                     
-                    # Filter for delta range 0.17 to 0.23 (absolute value)
+                    # Filter for delta range 0.15 to 0.25 (absolute value)
                     abs_delta = abs(delta)
-                    if 0.17 <= abs_delta <= 0.23:
+                    if 0.15 <= abs_delta <= 0.25:
                         # Calculate premium as percentage of collateral (strike price)
                         premium_percentage = (premium / strike) * 100
                         
@@ -213,11 +213,11 @@ class OptionsAnalyzer:
     def display_csp_summary(self, df: pd.DataFrame) -> None:
         """Display CSP opportunities in Streamlit"""
         if df.empty:
-            st.warning("No CSP opportunities found with delta range 0.17-0.23 expiring within next week")
+            st.warning("No CSP opportunities found with delta range 0.15-0.25 expiring within next week")
             return
         
         st.subheader("🎯 Cash Secured Put Opportunities")
-        st.caption("Put options with delta between 0.17-0.23 expiring within 10 days")
+        st.caption("Put options with delta between 0.15-0.25 expiring within 10 days")
         
         # Display summary metrics
         col1, col2, col3, col4 = st.columns(4)
