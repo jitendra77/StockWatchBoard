@@ -1,0 +1,9 @@
+Type,Premium,Symbol
+call,2.5,AAPL
+put,1.5,AAPL
+call,3.0,AAPL
+put,2.0,AAPL
+call,2.5,TSLA
+put,1.5,TSLA
+call,3.0,TSLA
+put,2.0,TSLA
