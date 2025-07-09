@@ -98,7 +98,7 @@ def main():
     # Stock selection
     default_stocks = [
         'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'NVDA',
-         'ORCL', 'HOOD','INTC', 'CRM', 'AVGO'
+         'ORCL', 'HOOD', 'CRM', 'AVGO'
     ]
     
     selected_stocks = st.sidebar.multiselect(
