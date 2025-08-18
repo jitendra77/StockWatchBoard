@@ -22,7 +22,7 @@ if 'last_update' not in st.session_state:
 if 'stock_data' not in st.session_state:
     st.session_state.stock_data = None
 if 'auto_refresh' not in st.session_state:
-    st.session_state.auto_refresh = True
+    st.session_state.auto_refresh = False
 
 
 def format_currency(value):
