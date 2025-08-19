@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source /workspace/.venv/bin/activate
+exec python /workspace/xlsx_to_parquet.py "$@"
+
