@@ -103,6 +103,12 @@ def main():
         "Note: Cash Secured Put options with delta 0.15-0.25, expiring within 10 days"
     )
 
+    enable_cc = st.sidebar.checkbox("Enable Covered Call Analysis",
+                                    value=True)
+    st.sidebar.caption(
+        "Note: Covered Calls with delta 0.15-0.25, expiring within 10 days"
+    )
+
     enable_portfolio_optimization = st.sidebar.checkbox(
         "Enable Portfolio Optimization", value=True)
     st.sidebar.caption(
@@ -282,7 +288,7 @@ def main():
     with col3:
         st.metric("Down", down_count)
 
-    # Options Analysis Section
+    # Options Analysis Section - CSP
     if enable_options:
         st.markdown("---")
         st.markdown("## 📊 Cash Secured Put (CSP) Analysis")
@@ -291,6 +297,15 @@ def main():
         options_df = options_analyzer.get_top_csp_opportunities(
             selected_stocks, limit=15)
         options_analyzer.display_csp_summary(options_df)
+
+    # Options Analysis Section - Covered Calls
+    if enable_cc:
+        st.markdown("---")
+        st.markdown("## 🛡️ Covered Call Analysis")
+
+        cc_df = options_analyzer.get_top_cc_opportunities(
+            selected_stocks, limit=15)
+        options_analyzer.display_cc_summary(cc_df)
 
     # Portfolio Optimization Section
     if enable_portfolio_optimization:
