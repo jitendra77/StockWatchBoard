@@ -262,4 +262,4 @@ class OptionsAnalyzer:
         st.dataframe(display_df, use_container_width=True)
         
         # Risk disclaimer
-        st.caption("⚠️ **Risk Disclaimer**: Options trading involves significant risk. CSP requires sufficient capital to purchase 100 shares at strike price. Past performance does not guarantee future results.")
+        st.caption("⚠️ **Risk Disclaimer**: CSP requires sufficient capital to purchase 100 shares at strike price if assigned. Options trading involves significant risk. Past performance does not guarantee future results.")
