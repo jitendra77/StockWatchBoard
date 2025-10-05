@@ -303,9 +303,16 @@ def main():
         st.markdown("---")
         st.markdown("## 🟦 Covered Call Analysis")
 
-        cc_df = options_analyzer.get_top_cc_opportunities(
-            selected_stocks, limit=15)
-        options_analyzer.display_cc_summary(cc_df)
+        # Analyze only specific stocks for covered calls
+        cc_target_stocks = ['AAPL', 'AMZN', 'GOOGL', 'HOOD', 'NVDA', 'ORCL']
+        cc_stocks_to_analyze = [s for s in cc_target_stocks if s in selected_stocks]
+        
+        if cc_stocks_to_analyze:
+            cc_df = options_analyzer.get_top_cc_opportunities(
+                cc_stocks_to_analyze, limit=15)
+            options_analyzer.display_cc_summary(cc_df)
+        else:
+            st.info(f"Please select at least one of these stocks for Covered Call analysis: {', '.join(cc_target_stocks)}")
 
     # Portfolio Optimization Section
     if enable_portfolio_optimization:

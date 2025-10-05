@@ -263,3 +263,145 @@ class OptionsAnalyzer:
         
         # Risk disclaimer
         st.caption("⚠️ **Risk Disclaimer**: CSP requires sufficient capital to purchase 100 shares at strike price if assigned. Options trading involves significant risk. Past performance does not guarantee future results.")
+    
+    # ============================
+    # Covered Call (CC) Analysis
+    # ============================
+    def analyze_cc_options(self, symbol: str) -> List[Dict[str, Any]]:
+        """Analyze Covered Call options for a symbol.
+        Assumptions: You own 100 shares at current market price per contract.
+        Filters: delta between 0.15 - 0.25 and expiration within next 10 days.
+        """
+        options_data = self.get_options_data(symbol)
+        if not options_data:
+            return []
+        
+        current_price = options_data['current_price']
+        iv = options_data['implied_volatility']
+        cc_opportunities = []
+        
+        for exp_date in options_data['expiration_dates']:
+            try:
+                stock = yf.Ticker(symbol)
+                option_chain = stock.option_chain(exp_date)
+                calls = option_chain.calls
+                if calls.empty:
+                    continue
+                
+                exp_datetime = datetime.strptime(exp_date, '%Y-%m-%d')
+                days_to_exp = (exp_datetime.date() - datetime.now().date()).days
+                time_to_exp = days_to_exp / 365.0
+                
+                for _, call in calls.iterrows():
+                    strike = call['strike']
+                    bid = call['bid']
+                    ask = call['ask']
+                    if bid <= 0 or ask <= 0:
+                        continue
+                    premium = (bid + ask) / 2
+                    # Call delta
+                    delta = self.calculate_black_scholes_delta(
+                        S=current_price,
+                        K=strike,
+                        T=time_to_exp,
+                        r=self.risk_free_rate,
+                        sigma=iv,
+                        option_type='call'
+                    )
+                    abs_delta = abs(delta)
+                    if 0.15 <= abs_delta <= 0.25:
+                        # Premium % vs capital tied up (100 shares at current price)
+                        premium_percentage = (premium / current_price) * 100 if current_price > 0 else 0
+                        annualized_return = (premium_percentage * 365) / days_to_exp if days_to_exp > 0 else 0
+                        # If called away, profit includes upside to strike plus premium
+                        upside_if_called = max(0.0, (strike - current_price))
+                        total_if_called_per_share = premium + upside_if_called
+                        max_profit = total_if_called_per_share * 100
+                        breakeven = current_price - premium
+                        cc_opportunities.append({
+                            'symbol': symbol,
+                            'expiration': exp_date,
+                            'days_to_exp': days_to_exp,
+                            'strike': strike,
+                            'current_price': current_price,
+                            'bid': bid,
+                            'ask': ask,
+                            'premium': premium,
+                            'delta': delta,
+                            'abs_delta': abs_delta,
+                            'premium_percentage': premium_percentage,
+                            'annualized_return': annualized_return,
+                            'collateral_required': current_price * 100,  # 100 shares owned
+                            'max_profit': max_profit,
+                            'upside_if_called': upside_if_called,
+                            'breakeven': breakeven
+                        })
+            except Exception:
+                continue
+        
+        cc_opportunities.sort(key=lambda x: x['premium_percentage'], reverse=True)
+        return cc_opportunities
+    
+    def analyze_multiple_stocks_cc(self, symbols: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+        """Analyze CC opportunities for multiple stocks"""
+        all_opportunities = {}
+        for symbol in symbols:
+            with st.spinner(f"Analyzing covered calls for {symbol}..."):
+                opportunities = self.analyze_cc_options(symbol)
+                if opportunities:
+                    all_opportunities[symbol] = opportunities
+        return all_opportunities
+    
+    def get_top_cc_opportunities(self, symbols: List[str], limit: int = 10) -> pd.DataFrame:
+        """Get top Covered Call opportunities across all symbols"""
+        opportunities = self.analyze_multiple_stocks_cc(symbols)
+        df = self.create_opportunities_dataframe(opportunities)
+        if df.empty:
+            return df
+        df_sorted = df.sort_values('premium_percentage', ascending=False)
+        return df_sorted.head(limit)
+    
+    def display_cc_summary(self, df: pd.DataFrame) -> None:
+        """Display Covered Call opportunities in Streamlit"""
+        if df.empty:
+            st.warning("No Covered Call opportunities found with delta range 0.15-0.25 expiring within next week")
+            return
+        
+        st.subheader("🟦 Covered Call Opportunities")
+        st.caption("Call options with delta between 0.15-0.25 expiring within 10 days (assumes 100 shares owned)")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Opportunities", len(df))
+        with col2:
+            avg_premium = df['premium_percentage'].mean()
+            st.metric("Avg Premium %", f"{avg_premium:.2f}%")
+        with col3:
+            avg_annual = df['annualized_return'].mean()
+            st.metric("Avg Annualized Return", f"{avg_annual:.1f}%")
+        with col4:
+            unique_stocks = df['symbol'].nunique()
+            st.metric("Stocks Analyzed", unique_stocks)
+        
+        display_columns = [
+            'symbol', 'expiration', 'days_to_exp', 'strike', 'current_price',
+            'premium', 'abs_delta', 'premium_percentage', 'annualized_return',
+            'upside_if_called', 'breakeven'
+        ]
+        display_df = df[display_columns].copy()
+        display_df.columns = [
+            'Symbol', 'Expiration', 'Days', 'Strike', 'Current Price',
+            'Premium', 'Delta', 'Premium %', 'Annual Return %',
+            'Upside If Called', 'Breakeven'
+        ]
+        display_df['Premium %'] = display_df['Premium %'].apply(lambda x: f"{x:.2f}%")
+        display_df['Annual Return %'] = display_df['Annual Return %'].apply(lambda x: f"{x:.1f}%")
+        display_df['Delta'] = display_df['Delta'].apply(lambda x: f"{x:.3f}")
+        display_df['Premium'] = display_df['Premium'].apply(lambda x: f"${x:.2f}")
+        display_df['Strike'] = display_df['Strike'].apply(lambda x: f"${x:.2f}")
+        display_df['Current Price'] = display_df['Current Price'].apply(lambda x: f"${x:.2f}")
+        display_df['Upside If Called'] = display_df['Upside If Called'].apply(lambda x: f"${x:.2f}")
+        display_df['Breakeven'] = display_df['Breakeven'].apply(lambda x: f"${x:.2f}")
+        
+        st.dataframe(display_df, use_container_width=True)
+        st.caption("⚠️ **Risk Disclaimer**: Covered calls cap upside beyond the strike. If shares are called away, you may incur tax consequences. Past performance does not guarantee future results.")
