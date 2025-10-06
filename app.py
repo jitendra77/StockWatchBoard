@@ -99,15 +99,57 @@ def main():
 
     enable_options = st.sidebar.checkbox("Enable CSP Options Analysis",
                                          value=True)
-    st.sidebar.caption(
-        "Note: Cash Secured Put options with delta 0.15-0.25, expiring within 10 days"
-    )
+    
+    # Delta range sliders for CSP
+    if enable_options:
+        st.sidebar.markdown("**CSP Delta Range**")
+        csp_delta_min, csp_delta_max = st.sidebar.slider(
+            "Select Delta Range (CSP)",
+            min_value=0.05,
+            max_value=0.50,
+            value=(0.15, 0.25),
+            step=0.01,
+            help="Filter put options by delta range (absolute value)"
+        )
+        
+        csp_max_days = st.sidebar.slider(
+            "Max Days to Expiration (CSP)",
+            min_value=1,
+            max_value=60,
+            value=10,
+            step=1,
+            help="Maximum days until option expiration"
+        )
+    else:
+        csp_delta_min, csp_delta_max = 0.15, 0.25
+        csp_max_days = 10
 
     enable_cc = st.sidebar.checkbox("Enable Covered Call Analysis",
                                     value=True)
-    st.sidebar.caption(
-        "Note: Covered Calls with delta 0.15-0.25, expiring within 10 days (assumes 100 shares)"
-    )
+    
+    # Delta range sliders for Covered Calls
+    if enable_cc:
+        st.sidebar.markdown("**Covered Call Delta Range**")
+        cc_delta_min, cc_delta_max = st.sidebar.slider(
+            "Select Delta Range (CC)",
+            min_value=0.05,
+            max_value=0.50,
+            value=(0.15, 0.25),
+            step=0.01,
+            help="Filter call options by delta range (absolute value)"
+        )
+        
+        cc_max_days = st.sidebar.slider(
+            "Max Days to Expiration (CC)",
+            min_value=1,
+            max_value=60,
+            value=10,
+            step=1,
+            help="Maximum days until option expiration"
+        )
+    else:
+        cc_delta_min, cc_delta_max = 0.15, 0.25
+        cc_max_days = 10
 
     enable_portfolio_optimization = st.sidebar.checkbox(
         "Enable Portfolio Optimization", value=True)
@@ -292,16 +334,23 @@ def main():
     if enable_options:
         st.markdown("---")
         st.markdown("## 📊 Cash Secured Put (CSP) Analysis")
+        st.caption(f"Delta range: {csp_delta_min:.2f} - {csp_delta_max:.2f} | Max days: {csp_max_days}")
 
-        # Analyze options for selected stocks
+        # Analyze options for selected stocks with custom parameters
         options_df = options_analyzer.get_top_csp_opportunities(
-            selected_stocks, limit=15)
-        options_analyzer.display_csp_summary(options_df)
+            selected_stocks, 
+            limit=15,
+            delta_min=csp_delta_min,
+            delta_max=csp_delta_max,
+            max_days=csp_max_days
+        )
+        options_analyzer.display_csp_summary(options_df, delta_min=csp_delta_min, delta_max=csp_delta_max, max_days=csp_max_days)
 
     # Covered Call Analysis Section
     if enable_cc:
         st.markdown("---")
         st.markdown("## 🟦 Covered Call Analysis")
+        st.caption(f"Delta range: {cc_delta_min:.2f} - {cc_delta_max:.2f} | Max days: {cc_max_days}")
 
         # Analyze only specific stocks for covered calls
         cc_target_stocks = ['AAPL', 'AMZN', 'GOOGL', 'HOOD', 'NVDA', 'ORCL']
@@ -309,8 +358,13 @@ def main():
         
         if cc_stocks_to_analyze:
             cc_df = options_analyzer.get_top_cc_opportunities(
-                cc_stocks_to_analyze, limit=15)
-            options_analyzer.display_cc_summary(cc_df)
+                cc_stocks_to_analyze, 
+                limit=15,
+                delta_min=cc_delta_min,
+                delta_max=cc_delta_max,
+                max_days=cc_max_days
+            )
+            options_analyzer.display_cc_summary(cc_df, delta_min=cc_delta_min, delta_max=cc_delta_max, max_days=cc_max_days)
         else:
             st.info(f"Please select at least one of these stocks for Covered Call analysis: {', '.join(cc_target_stocks)}")
 
