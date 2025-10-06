@@ -117,7 +117,7 @@ def main():
 
     # Stock selection
     default_stocks = [
-        'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'NVDA', 'ORCL', 'HOOD', 'CRM',
+        'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'NVDA', 'ORCL', 'HOOD', 'PLTR',
         'AVGO'
     ]
 
