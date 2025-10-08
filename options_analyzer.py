@@ -44,7 +44,7 @@ class OptionsAnalyzer:
         except:
             return 0.25
     
-    def get_options_data(self, symbol: str) -> Dict[str, Any]:
+    def get_options_data(self, symbol: str, max_days: int = 10) -> Dict[str, Any]:
         """Fetch options data for a stock symbol"""
         try:
             stock = yf.Ticker(symbol)
@@ -55,14 +55,14 @@ class OptionsAnalyzer:
             if not expiration_dates:
                 return None
             
-            # Filter for next week (within 10 days)
+            # Filter for expiration within max_days
             today = datetime.now().date()
-            next_week = today + timedelta(days=10)
+            max_date = today + timedelta(days=max_days)
             
             valid_expirations = []
             for exp_str in expiration_dates:
                 exp_date = datetime.strptime(exp_str, '%Y-%m-%d').date()
-                if today < exp_date <= next_week:
+                if today < exp_date <= max_date:
                     valid_expirations.append(exp_str)
             
             if not valid_expirations:
@@ -81,9 +81,9 @@ class OptionsAnalyzer:
         except Exception as e:
             return None
     
-    def analyze_csp_options(self, symbol: str) -> List[Dict[str, Any]]:
+    def analyze_csp_options(self, symbol: str, delta_min: float = 0.15, delta_max: float = 0.25, max_days: int = 10) -> List[Dict[str, Any]]:
         """Analyze Cash Secured Put options for a symbol"""
-        options_data = self.get_options_data(symbol)
+        options_data = self.get_options_data(symbol, max_days=max_days)
         if not options_data:
             return []
         
@@ -127,9 +127,9 @@ class OptionsAnalyzer:
                         option_type='put'
                     )
                     
-                    # Filter for delta range 0.15 to 0.25 (absolute value)
+                    # Filter for delta range (absolute value)
                     abs_delta = abs(delta)
-                    if 0.15 <= abs_delta <= 0.25:
+                    if delta_min <= abs_delta <= delta_max:
                         # Calculate premium as percentage of collateral (strike price)
                         premium_percentage = (premium / strike) * 100
                         
@@ -164,13 +164,13 @@ class OptionsAnalyzer:
         csp_opportunities.sort(key=lambda x: x['premium_percentage'], reverse=True)
         return csp_opportunities
     
-    def analyze_multiple_stocks(self, symbols: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    def analyze_multiple_stocks(self, symbols: List[str], delta_min: float = 0.15, delta_max: float = 0.25, max_days: int = 10) -> Dict[str, List[Dict[str, Any]]]:
         """Analyze CSP opportunities for multiple stocks"""
         all_opportunities = {}
         
         for symbol in symbols:
             with st.spinner(f"Analyzing options for {symbol}..."):
-                opportunities = self.analyze_csp_options(symbol)
+                opportunities = self.analyze_csp_options(symbol, delta_min=delta_min, delta_max=delta_max, max_days=max_days)
                 if opportunities:
                     all_opportunities[symbol] = opportunities
         
@@ -198,9 +198,9 @@ class OptionsAnalyzer:
         
         return df
     
-    def get_top_csp_opportunities(self, symbols: List[str], limit: int = 10) -> pd.DataFrame:
+    def get_top_csp_opportunities(self, symbols: List[str], limit: int = 10, delta_min: float = 0.15, delta_max: float = 0.25, max_days: int = 10) -> pd.DataFrame:
         """Get top CSP opportunities across all symbols"""
-        opportunities = self.analyze_multiple_stocks(symbols)
+        opportunities = self.analyze_multiple_stocks(symbols, delta_min=delta_min, delta_max=delta_max, max_days=max_days)
         df = self.create_opportunities_dataframe(opportunities)
         
         if df.empty:
@@ -210,14 +210,14 @@ class OptionsAnalyzer:
         df_sorted = df.sort_values('premium_percentage', ascending=False)
         return df_sorted.head(limit)
     
-    def display_csp_summary(self, df: pd.DataFrame) -> None:
+    def display_csp_summary(self, df: pd.DataFrame, delta_min: float = 0.15, delta_max: float = 0.25, max_days: int = 10) -> None:
         """Display CSP opportunities in Streamlit"""
         if df.empty:
-            st.warning("No CSP opportunities found with delta range 0.15-0.25 expiring within next week")
+            st.warning(f"No CSP opportunities found with delta range {delta_min:.2f}-{delta_max:.2f} expiring within {max_days} days")
             return
         
         st.subheader("🎯 Cash Secured Put Opportunities")
-        st.caption("Put options with delta between 0.15-0.25 expiring within 10 days")
+        st.caption(f"Put options with delta between {delta_min:.2f}-{delta_max:.2f} expiring within {max_days} days")
         
         # Display summary metrics
         col1, col2, col3, col4 = st.columns(4)
@@ -267,12 +267,12 @@ class OptionsAnalyzer:
     # ============================
     # Covered Call (CC) Analysis
     # ============================
-    def analyze_cc_options(self, symbol: str) -> List[Dict[str, Any]]:
+    def analyze_cc_options(self, symbol: str, delta_min: float = 0.15, delta_max: float = 0.25, max_days: int = 10) -> List[Dict[str, Any]]:
         """Analyze Covered Call options for a symbol.
         Assumptions: You own 100 shares at current market price per contract.
-        Filters: delta between 0.15 - 0.25 and expiration within next 10 days.
+        Filters: delta between delta_min - delta_max and expiration within max_days.
         """
-        options_data = self.get_options_data(symbol)
+        options_data = self.get_options_data(symbol, max_days=max_days)
         if not options_data:
             return []
         
@@ -309,7 +309,7 @@ class OptionsAnalyzer:
                         option_type='call'
                     )
                     abs_delta = abs(delta)
-                    if 0.15 <= abs_delta <= 0.25:
+                    if delta_min <= abs_delta <= delta_max:
                         # Premium % vs capital tied up (100 shares at current price)
                         premium_percentage = (premium / current_price) * 100 if current_price > 0 else 0
                         annualized_return = (premium_percentage * 365) / days_to_exp if days_to_exp > 0 else 0
@@ -342,33 +342,33 @@ class OptionsAnalyzer:
         cc_opportunities.sort(key=lambda x: x['premium_percentage'], reverse=True)
         return cc_opportunities
     
-    def analyze_multiple_stocks_cc(self, symbols: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    def analyze_multiple_stocks_cc(self, symbols: List[str], delta_min: float = 0.15, delta_max: float = 0.25, max_days: int = 10) -> Dict[str, List[Dict[str, Any]]]:
         """Analyze CC opportunities for multiple stocks"""
         all_opportunities = {}
         for symbol in symbols:
             with st.spinner(f"Analyzing covered calls for {symbol}..."):
-                opportunities = self.analyze_cc_options(symbol)
+                opportunities = self.analyze_cc_options(symbol, delta_min=delta_min, delta_max=delta_max, max_days=max_days)
                 if opportunities:
                     all_opportunities[symbol] = opportunities
         return all_opportunities
     
-    def get_top_cc_opportunities(self, symbols: List[str], limit: int = 10) -> pd.DataFrame:
+    def get_top_cc_opportunities(self, symbols: List[str], limit: int = 10, delta_min: float = 0.15, delta_max: float = 0.25, max_days: int = 10) -> pd.DataFrame:
         """Get top Covered Call opportunities across all symbols"""
-        opportunities = self.analyze_multiple_stocks_cc(symbols)
+        opportunities = self.analyze_multiple_stocks_cc(symbols, delta_min=delta_min, delta_max=delta_max, max_days=max_days)
         df = self.create_opportunities_dataframe(opportunities)
         if df.empty:
             return df
         df_sorted = df.sort_values('premium_percentage', ascending=False)
         return df_sorted.head(limit)
     
-    def display_cc_summary(self, df: pd.DataFrame) -> None:
+    def display_cc_summary(self, df: pd.DataFrame, delta_min: float = 0.15, delta_max: float = 0.25, max_days: int = 10) -> None:
         """Display Covered Call opportunities in Streamlit"""
         if df.empty:
-            st.warning("No Covered Call opportunities found with delta range 0.15-0.25 expiring within next week")
+            st.warning(f"No Covered Call opportunities found with delta range {delta_min:.2f}-{delta_max:.2f} expiring within {max_days} days")
             return
         
         st.subheader("🟦 Covered Call Opportunities")
-        st.caption("Call options with delta between 0.15-0.25 expiring within 10 days (assumes 100 shares owned)")
+        st.caption(f"Call options with delta between {delta_min:.2f}-{delta_max:.2f} expiring within {max_days} days (assumes 100 shares owned)")
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:

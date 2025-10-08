@@ -107,7 +107,7 @@ def main():
             "Select Delta Range (CSP)",
             min_value=0.05,
             max_value=0.50,
-            value=(0.15, 0.25),
+            value=(0.19, 0.29),
             step=0.01,
             help="Filter put options by delta range (absolute value)"
         )
@@ -121,7 +121,7 @@ def main():
             help="Maximum days until option expiration"
         )
     else:
-        csp_delta_min, csp_delta_max = 0.15, 0.25
+        csp_delta_min, csp_delta_max = 0.19, 0.29
         csp_max_days = 10
 
     enable_cc = st.sidebar.checkbox("Enable Covered Call Analysis",
@@ -134,7 +134,7 @@ def main():
             "Select Delta Range (CC)",
             min_value=0.05,
             max_value=0.50,
-            value=(0.15, 0.25),
+            value=(0.19, 0.29),
             step=0.01,
             help="Filter call options by delta range (absolute value)"
         )
@@ -148,7 +148,7 @@ def main():
             help="Maximum days until option expiration"
         )
     else:
-        cc_delta_min, cc_delta_max = 0.15, 0.25
+        cc_delta_min, cc_delta_max = 0.19, 0.29
         cc_max_days = 10
 
     enable_portfolio_optimization = st.sidebar.checkbox(
